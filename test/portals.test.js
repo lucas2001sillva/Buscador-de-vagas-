@@ -79,3 +79,14 @@ test('sem chave, portais protegidos ficam pendentes e não fazem chamadas autent
   const service = createJobsService({ sources: [linkedin, { id: 'empty', name: 'Outra fonte', load: async () => [] }] });
   const data = await service(); assert.equal(data.sources[0].status, 'not_configured'); assert.equal(data.sources[0].count, 0);
 });
+
+test('diagnóstico público informa HTTP e não expõe o texto privado da falha', async () => {
+  const service = createJobsService({ sources: [
+    { id: 'blocked', load: async () => { const error = new Error('private credential diagnostic'); error.status = 403; throw error; } },
+    { id: 'available', load: async () => [] },
+  ] });
+  const data = await service();
+  assert.equal(data.sources[0].failureReason, 'HTTP_403');
+  assert.equal(data.sources[1].failureReason, null);
+  assert.ok(!JSON.stringify(data).includes('private credential'));
+});

@@ -116,7 +116,7 @@ export function createPortalSources({ getApiKey = () => process.env.SERPAPI_KEY 
   return PORTALS.map(portal => ({ ...portal, async load({ fetchImpl, now }) {
     if (parsers[portal.id]) {
       try { return parsers[portal.id](await fetchPublic(portal.url, fetchImpl), now); }
-      catch { if (!getApiKey()) throw new Error('A listagem pública está indisponível'); }
+      catch (error) { if (!getApiKey()) throw error; }
     }
     if (!getApiKey()) { const error = new Error('Integração autorizada ainda não configurada'); error.code = 'NOT_CONFIGURED'; throw error; }
     return (await provider.getJobs({ fetchImpl, now })).filter(job => job.sourceId === portal.id);

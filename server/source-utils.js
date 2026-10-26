@@ -10,6 +10,10 @@ export function isoDate(value) {
 }
 export async function fetchPublic(url, fetchImpl, json = false) {
   const response = await fetchImpl(url, { signal: AbortSignal.timeout(15000), headers: { Accept: json ? 'application/json' : 'text/html', 'User-Agent': 'ProximaVaga/1.0 (public job listings)' } });
-  if (!response.ok) throw new Error(`Fonte respondeu HTTP ${response.status}`);
+  if (!response.ok) {
+    const error = new Error('A fonte recusou a consulta pública');
+    error.status = response.status;
+    throw error;
+  }
   return json ? response.json() : response.text();
 }
