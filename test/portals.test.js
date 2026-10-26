@@ -90,3 +90,13 @@ test('diagnóstico público informa HTTP e não expõe o texto privado da falha'
   assert.equal(data.sources[1].failureReason, null);
   assert.ok(!JSON.stringify(data).includes('private credential'));
 });
+
+test('InfoJobs lê cartões HTML móveis e ignora distância do visitante e páginas jurídicas', () => {
+  const html = `<a class="js_vacancyLoad" href="/vaga-de-analista__123.aspx"><h2 class="js_vacancyTitle">Analista</h2><div class="d-flex align-items-center"><div class="text-body">Empresa</div></div><div class="text-body mb-8">São Paulo - SP<span hidden>0 km de você</span></div><div><svg class="icon-buildings"></svg>Presencial</div><div class="js_date" data-value="2026/10/26 08:06:00"></div></a>`;
+  const [job] = parseInfojobs(html);
+  assert.equal(job.title, 'Analista'); assert.equal(job.company, 'Empresa');
+  assert.equal(job.location, 'São Paulo - SP'); assert.equal(job.workModel, 'onsite');
+  assert.equal(job.publishedAt, '2026-10-26'); assert.deepEqual(job.types, []);
+  assert.equal(safeJobUrl('https://m.infojobs.com.br/legal/aviso-legal-para-candidatos__15727.aspx'), null);
+  assert.ok(safeJobUrl('https://m.infojobs.com.br/vaga-de-analista__123.aspx'));
+});

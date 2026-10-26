@@ -31,7 +31,7 @@ export function safeJobUrl(value) {
     const host = url.hostname;
     if (['www.linkedin.com', 'br.linkedin.com', 'linkedin.com'].includes(host) && /^\/jobs\/view\/(?:[^/]+-)?\d+\/?$/.test(url.pathname)) return url.href;
     if (['br.indeed.com', 'www.indeed.com', 'indeed.com'].includes(host) && ['/viewjob', '/rc/clk'].includes(url.pathname) && /^[a-z0-9]+$/i.test(url.searchParams.get('jk') || '')) return url.href;
-    if (['www.infojobs.com.br', 'infojobs.com.br'].includes(host) && /__\d+\.aspx$/i.test(url.pathname)) return url.href;
+    if (['www.infojobs.com.br', 'infojobs.com.br', 'm.infojobs.com.br'].includes(host) && /^\/vaga-de-[^/]+__\d+\.aspx$/i.test(url.pathname)) return url.href;
     if (['www.catho.com.br', 'catho.com.br'].includes(host) && /^\/vagas\/[^/]+\/\d+\/?$/.test(url.pathname)) return url.href;
     if (['www.glassdoor.com.br', 'glassdoor.com.br', 'www.glassdoor.com'].includes(host) && /^\/job-listing\/[^/]+\.htm$/.test(url.pathname) && /^\d+$/.test(url.searchParams.get('jl') || '')) return url.href;
     if (['www.randstad.com.br', 'randstad.com.br'].includes(host) && /^\/(?:vagas|empregos)\/[^/]+_\d+\/?$/.test(url.pathname)) return url.href;

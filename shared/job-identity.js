@@ -38,7 +38,7 @@ export function canonicalJobUrl(value) {
       const id = url.searchParams.get('jk') || url.searchParams.get('vjk');
       if (id && /^[a-z0-9]+$/i.test(id)) return `indeed:${id}`;
     }
-    if (host === 'www.infojobs.com.br' || host === 'infojobs.com.br') {
+    if (['www.infojobs.com.br', 'infojobs.com.br', 'm.infojobs.com.br'].includes(host)) {
       const id = url.pathname.match(/__(\d+)\.aspx$/i)?.[1];
       if (id) return `infojobs:${id}`;
     }

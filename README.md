@@ -38,7 +38,7 @@ npm start
 | Glassdoor | `glassdoor.com.br/Vaga/engenheiro-de-software-vagas-SRCH_KO0,22.htm` | Primeira página da consulta pública de engenharia de software, com empresas, locais e resumos efetivamente publicados. Não representa todo o catálogo do Glassdoor. |
 | Indeed | `br.indeed.com/jobs?l=Brasil` | Primeira página pública da seleção Brasil; lê somente os anúncios serializados, descarta expirados e publicações com mais de 180 dias. Não executa scripts da fonte nem utiliza tokens da sessão pública. |
 | Randstad | `randstad.com.br/empregos/` | Primeira página pública, com contrato e data informados pela fonte. A empresa exibida é Randstad; clientes não informados não são inventados. |
-| InfoJobs | `infojobs.com.br/empregos.aspx` | Leitor de anúncios estruturados JobPosting preparado. A fonte respondeu HTTP 500 nesta validação; não é apresentada como conectada. |
+| InfoJobs | `infojobs.com.br/empregos.aspx` | Primeira página pública, com cartões HTML ou anúncios estruturados JobPosting. Na seleção padrão consultada, o portal retornou vagas de São Paulo. Erros temporários da fonte não são tratados como uma conexão bem-sucedida. |
 | Catho | Integração opcional via índice Google Jobs | A consulta direta respondeu HTTP 403; conexão pendente de configuração e validação do provedor. |
 | LinkedIn | Integração opcional via índice Google Jobs | Não há consulta automatizada direta sem permissão. Conexão pendente de configuração e validação do provedor. |
 | Gupy | `portal.gupy.io/api/job-search/jobs` | Até 100 anúncios da busca mais recente; somente país Brasil ou localização em uma UF brasileira reconhecida. Na indisponibilidade da rota, usa os dados públicos da página de busca. Exclui banco de talentos e prazo de inscrição vencido quando informado. |
@@ -82,7 +82,7 @@ A API retorna `deduplication.received`, `unique` e `removed`. `sources[].rawCoun
 
 A integração com [Google Jobs via SerpApi](https://serpapi.com/google-jobs-api) foi preparada para os seis portais solicitados: Glassdoor, Indeed, InfoJobs, Catho, LinkedIn e Randstad. Ela só usa links diretos de anúncios nos domínios reconhecidos. Um rótulo como “LinkedIn” apontando para outro domínio não é aceito. Anúncios agrupados pelo índice são deduplicados novamente pela aplicação.
 
-**Ainda não houve validação autenticada:** o usuário informou não possuir uma API, e não há chave disponível. Os testes do provedor usam fixtures explícitas. Nenhuma requisição com credencial inventada é executada. As fontes protegidas aparecem como **Conexão pendente**, e não como fontes funcionando. InfoJobs aparece como indisponível enquanto a consulta pública falhar.
+**Ainda não houve validação autenticada:** o usuário informou não possuir uma API, e não há chave disponível. Os testes do provedor usam fixtures explícitas. Nenhuma requisição com credencial inventada é executada. As fontes protegidas aparecem como **Conexão pendente**, e não como fontes funcionando. Consultas públicas que falham aparecem como indisponíveis até uma recuperação real.
 
 Para usar o provedor:
 

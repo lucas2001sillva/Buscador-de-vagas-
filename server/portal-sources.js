@@ -106,6 +106,30 @@ export function parseInfojobs(html) {
       if (job) jobs.push(job);
     }
   });
+  if (!jobs.length) {
+    // O portal também publica cartões HTML, sem JSON-LD, inclusive na versão móvel.
+    $('a.js_vacancyLoad').each((_, element) => {
+      const card = $(element);
+      const href = card.attr('href');
+      if (!href) return;
+      const portal = PORTALS.find(p => p.id === 'infojobs');
+      const url = safeJobUrl(new URL(href, portal.url).href);
+      const id = url && new URL(url).pathname.match(/__(\d+)\.aspx$/i)?.[1];
+      const locationNode = card.find('div.text-body.mb-8').first().clone();
+      locationNode.find('[hidden], svg, style').remove();
+      const mode = card.find('svg.icon-buildings').parent().text();
+      const rawDate = card.find('.js_date').attr('data-value');
+      const date = rawDate?.match(/^(\d{4})\/(\d{2})\/(\d{2})/);
+      const job = baseJob(portal, {
+        id, title: card.find('.js_vacancyTitle').text(),
+        company: card.find('.d-flex.align-items-center > .text-body').first().text(),
+        location: locationNode.text(), workModel: normalizeWorkModel(mode),
+        types: [], description: 'Anúncio público do InfoJobs. Consulte a página original para ler os requisitos, benefícios e condições da candidatura.',
+        url, publishedAt: date ? `${date[1]}-${date[2]}-${date[3]}` : null, postedDatePrecision: 'day', country: 'BR',
+      });
+      if (job) jobs.push(job);
+    });
+  }
   if (!jobs.length) throw new Error('InfoJobs não disponibilizou uma listagem pública reconhecida');
   return jobs;
 }
