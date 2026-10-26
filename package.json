@@ -1,0 +1,28 @@
+{
+  "name": "proxima-vaga",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.5.0"
+  },
+  "scripts": {
+    "dev": "node --use-env-proxy server/index.js",
+    "build": "vite build",
+    "start": "node --use-env-proxy server/index.js --production",
+    "test": "node --test",
+    "test:ui": "node scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/dm-sans": "5.3.0",
+    "@fontsource-variable/manrope": "5.3.0",
+    "lucide-react": "1.61.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "playwright": "1.64.1",
+    "vite": "8.3.5"
+  }
+}
