@@ -34,6 +34,7 @@ try {
   browser = await chromium.launch({ executablePath, headless: true, args: ['--no-sandbox'] });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const page = await context.newPage();
+  await page.route('**/pagead/js/adsbygoogle.js*', route => route.abort());
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.route('**/api/jobs', route => route.fulfill({ json: payload }));
@@ -105,8 +106,31 @@ try {
   await page.getByRole('button', { name: 'Tentar novamente' }).click();
   await page.locator('.job-card').first().waitFor();
   assert.equal(await page.locator('.job-card').count(), 9);
+  await page.unroute('**/api/jobs');
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const duplicate = { ...fixtures[0], id: 'duplicate-other-site', sourceId: 'indeed', sourceName: 'Indeed', url: 'https://br.indeed.com/viewjob?jk=abc123' };
+  let currentPayload = { ...payload, jobs: [...fixtures, duplicate], sources: [...payload.sources, { id: 'indeed', name: 'Indeed', url: 'https://br.indeed.com', status: 'ok', count: 0 }, { id: 'catho', name: 'Catho', url: 'https://www.catho.com.br/vagas/', status: 'not_configured', count: 0 }] };
+  await page.route('**/api/jobs', route => route.fulfill({ json: currentPayload }));
+  await page.reload();
+  await page.locator('.job-card').first().waitFor();
+  await page.getByRole('button', { name: /Mostrar mais oportunidades/ }).click();
+  assert.equal(await page.locator('.job-card').count(), 12, 'A cópia de outro portal não gera um décimo terceiro card');
+  assert.equal(await page.getByRole('button', { name: 'Software Engineer 0', exact: true }).count(), 1);
+  await page.getByRole('button', { name: 'Salvar vaga: Software Engineer 0', exact: true }).click();
+  // O índice passa a escolher outra origem; o favorito precisa continuar único e removível.
+  currentPayload = { ...currentPayload, jobs: [{ ...duplicate, duplicateIds: [fixtures[0].id, duplicate.id] }, ...fixtures.slice(1)] };
+  await page.reload();
+  await page.getByRole('button', { name: /Favoritas/ }).click();
+  assert.equal(await page.locator('.job-card').count(), 1);
+  await page.getByRole('button', { name: 'Remover dos favoritos: Software Engineer 0', exact: true }).click();
+  await page.getByRole('heading', { name: 'Seu próximo passo pode começar com um favorito.' }).waitFor();
+  await page.getByRole('button', { name: 'Explorar vagas', exact: true }).first().click();
+  await page.getByLabel('Fonte das vagas', { exact: true }).selectOption('catho');
+  await page.getByRole('heading', { name: 'Esta fonte ainda não está conectada.' }).waitFor();
+  assert.equal(await page.locator('.job-card').count(), 0);
+  assert.ok(!(await page.locator('body').innerText()).includes('SERPAPI_KEY'), 'Detalhes internos de configuração não aparecem no fluxo público');
   assert.deepEqual(errors, []);
-  console.log('PASS: busca, filtros de três modalidades, contratos em português, fontes, passagens NVI, paginação, favoritos persistentes, detalhes, candidatura, estados vazio/erro/recuperação, mobile e acessibilidade automática. Dados simulados apenas neste teste.');
+  console.log('PASS: busca, filtros de três modalidades, contratos em português, fontes, passagens NVI, paginação, favoritos persistentes, detalhes, candidatura, estados vazio/erro/recuperação, mobile, acessibilidade automática, deduplicação entre portais, troca de origem dos favoritos e fontes pendentes. Dados simulados apenas neste teste.');
 } finally {
   await browser?.close();
   if (server) {

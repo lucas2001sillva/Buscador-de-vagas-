@@ -6,7 +6,7 @@ export function normalizeText(value = '') {
 export function normalizeWorkModel(value) {
   const text = normalizeText(value).trim();
   if (/^(hybrid|hibrido|hibrida|trabalho hibrido)$/.test(text)) return 'hybrid';
-  if (/^(remote|remoto|remota|home[- ]office|anywhere|100% remoto|teletrabalho)$/.test(text)) return 'remote';
+  if (/^(remote|remoto|remota|home[- ]office|anywhere|100% remoto|trabalho remoto|teletrabalho)$/.test(text)) return 'remote';
   if (/^(on[- ]?site|onsite|presencial|alocado|alocada|in[- ]office)$/.test(text)) return 'onsite';
   return 'unknown';
 }
@@ -29,6 +29,12 @@ export function safeJobUrl(value) {
     const url = new URL(value);
     if (url.protocol !== 'https:' || url.username || url.password || (url.port && url.port !== '443')) return null;
     const host = url.hostname;
+    if (['www.linkedin.com', 'br.linkedin.com', 'linkedin.com'].includes(host) && /^\/jobs\/view\/(?:[^/]+-)?\d+\/?$/.test(url.pathname)) return url.href;
+    if (['br.indeed.com', 'www.indeed.com', 'indeed.com'].includes(host) && ['/viewjob', '/rc/clk'].includes(url.pathname) && /^[a-z0-9]+$/i.test(url.searchParams.get('jk') || '')) return url.href;
+    if (['www.infojobs.com.br', 'infojobs.com.br'].includes(host) && /__\d+\.aspx$/i.test(url.pathname)) return url.href;
+    if (['www.catho.com.br', 'catho.com.br'].includes(host) && /^\/vagas\/[^/]+\/\d+\/?$/.test(url.pathname)) return url.href;
+    if (['www.glassdoor.com.br', 'glassdoor.com.br', 'www.glassdoor.com'].includes(host) && /^\/job-listing\/[^/]+\.htm$/.test(url.pathname) && /^\d+$/.test(url.searchParams.get('jl') || '')) return url.href;
+    if (['www.randstad.com.br', 'randstad.com.br'].includes(host) && /^\/(?:vagas|empregos)\/[^/]+_\d+\/?$/.test(url.pathname)) return url.href;
     if (host === 'github.com' && /^\/(frontendbr|backend-br|react-brasil)\/vagas\/issues\/\d+\/?$/.test(url.pathname)) return url.href;
     if (host.endsWith('.gupy.io') && host !== 'portal.api.gupy.io' && (/^\/jobs\/\d+\/?$/.test(url.pathname) || /^\/job\/[A-Za-z0-9_+%=-]+\/?$/.test(url.pathname))) return url.href;
     if (['programathor.com.br', 'www.programathor.com.br'].includes(host) && /^\/jobs\/\d+[^/]*\/?$/.test(url.pathname)) return url.href;
@@ -41,5 +47,5 @@ export function restoreFavorite(item) {
   if (!item || !['id', 'title', 'company', 'location'].every(key => typeof item[key] === 'string') || !safeJobUrl(item.url)) return null;
   const tags = Array.isArray(item.tags) ? item.tags.filter(tag => typeof tag === 'string') : [];
   const workModel = Object.hasOwn(WORK_MODELS, item.workModel) ? item.workModel : item.remote === true ? 'remote' : 'unknown';
-  return { ...item, url: safeJobUrl(item.url), tags, types: normalizeContracts(Array.isArray(item.types) ? item.types : []), workModel, remote: workModel === 'remote', sourceName: typeof item.sourceName === 'string' ? item.sourceName : 'Arbeitnow (favorito antigo)', sourceId: typeof item.sourceId === 'string' ? item.sourceId : 'legacy', description: typeof item.description === 'string' ? item.description : '', publishedAt: typeof item.publishedAt === 'string' ? item.publishedAt : null };
+  return { ...item, url: safeJobUrl(item.url), tags, duplicateIds: Array.isArray(item.duplicateIds) ? item.duplicateIds.filter(id => typeof id === 'string') : [], types: normalizeContracts(Array.isArray(item.types) ? item.types : []), workModel, remote: workModel === 'remote', sourceName: typeof item.sourceName === 'string' ? item.sourceName : 'Arbeitnow (favorito antigo)', sourceId: typeof item.sourceId === 'string' ? item.sourceId : 'legacy', description: typeof item.description === 'string' ? item.description : '', publishedAt: typeof item.publishedAt === 'string' ? item.publishedAt : null };
 }

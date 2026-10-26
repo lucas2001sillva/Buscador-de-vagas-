@@ -1,15 +1,8 @@
 import { detectWorkModel, normalizeContracts, normalizeText, normalizeWorkModel, safeJobUrl } from '../shared/job-schema.js';
 import { load } from 'cheerio';
-export function plainText(value = '') {
-  return String(value).replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
-    .replace(/<\/(p|div|li|h[1-6])\s*>|<br\s*\/?\s*>/gi, '\n').replace(/<[^>]*>/g, '')
-    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").trim();
-}
-function isoDate(value) {
-  const date = new Date(value);
-  return value && Number.isFinite(date.getTime()) ? date.toISOString() : null;
-}
+import { plainText, isoDate, fetchPublic as get } from './source-utils.js';
+export { plainText } from './source-utils.js';
+import { createPortalSources } from './portal-sources.js';
 const BRAZILIAN_STATES = new Set('AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO|Acre|Alagoas|Amapá|Amazonas|Bahia|Ceará|Distrito Federal|Espírito Santo|Goiás|Maranhão|Mato Grosso|Mato Grosso do Sul|Minas Gerais|Pará|Paraíba|Paraná|Pernambuco|Piauí|Rio de Janeiro|Rio Grande do Norte|Rio Grande do Sul|Rondônia|Roraima|Santa Catarina|São Paulo|Sergipe|Tocantins'.split('|').map(normalizeText));
 export function parseGupyListing(html) {
   const $ = load(html);
@@ -73,11 +66,6 @@ export function normalizeGithub(issue, board, now = Date.now()) {
     url, publishedAt: date, sourceId: board.id, sourceName: board.name, sourceUrl: `https://github.com/${board.repository}`,
   };
 }
-async function get(url, fetchImpl, json = false) {
-  const response = await fetchImpl(url, { signal: AbortSignal.timeout(15000), headers: { Accept: json ? 'application/json' : 'text/html', 'User-Agent': 'ProximaVaga/1.0 (public job listings)' } });
-  if (!response.ok) throw new Error(`Fonte respondeu HTTP ${response.status}`);
-  return json ? response.json() : response.text();
-}
 export function parseProgramathor(html) {
   const $ = load(html);
   if (!$('.cell-list').length) throw new Error('Estrutura da lista do ProgramaThor mudou');
@@ -107,6 +95,7 @@ export function parseProgramathor(html) {
   return jobs;
 }
 export const SOURCES = [
+  ...createPortalSources(),
   { id: 'programathor', name: 'ProgramaThor', url: 'https://programathor.com.br/jobs', async load({ fetchImpl }) {
     return parseProgramathor(await get('https://programathor.com.br/jobs', fetchImpl));
   } },
