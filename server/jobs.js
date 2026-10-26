@@ -1,62 +1,47 @@
-export const FEED_URL = 'https://www.arbeitnow.com/api/job-board-api';
+import { SOURCES } from './sources.js';
 export const CACHE_TTL = 10 * 60 * 1000;
-
-export function plainText(value = '') {
-  return String(value)
-    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
-    .replace(/<\/(p|div|li|h[1-6])\s*>|<br\s*\/?\s*>/gi, '\n')
-    .replace(/<[^>]*>/g, '')
-    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"').replace(/&#0?39;/g, "'")
-    .trim();
-}
-
-export function normalizeJob(job) {
-  if (!job || typeof job !== 'object' || !job.slug || !job.title || !job.company_name) return null;
-  try {
+export const ERROR_RETRY_TTL = 60 * 1000;
+export function deduplicateJobs(jobs) {
+  const unique = new Map();
+  for (const job of jobs) {
     const url = new URL(job.url);
-    if (url.protocol !== 'https:' || url.hostname !== 'www.arbeitnow.com' || url.username || url.password) return null;
-    const timestamp = Number(job.created_at) * 1000;
-    return {
-      id: String(job.slug), title: plainText(job.title), company: plainText(job.company_name),
-      location: plainText(job.location) || 'Localização não informada', remote: job.remote === true,
-      tags: Array.isArray(job.tags) ? job.tags.filter(t => typeof t === 'string').map(plainText) : [],
-      types: Array.isArray(job.job_types) ? job.job_types.filter(t => typeof t === 'string').map(plainText) : [],
-      description: plainText(job.description), url: url.href,
-      publishedAt: Number.isFinite(timestamp) && timestamp > 0 ? new Date(timestamp).toISOString() : null,
-    };
-  } catch { return null; }
-}
-
-export function createJobsService({ fetchImpl = fetch, now = Date.now } = {}) {
-  let cache;
-  let inFlight;
-  async function refresh() {
-    const response = await fetchImpl(FEED_URL, {
-      headers: { Accept: 'application/json', 'User-Agent': 'ProximaVaga/1.0 (public job board)' },
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!response.ok) throw new Error(`Fonte respondeu HTTP ${response.status}`);
-    const payload = await response.json();
-    if (!Array.isArray(payload.data)) throw new Error('Formato inesperado na fonte de vagas');
-    const unique = new Map();
-    for (const item of payload.data) {
-      const job = normalizeJob(item);
-      if (job) unique.set(job.id, job);
-    }
-    if (payload.data.length && !unique.size) throw new Error('A fonte não retornou vagas válidas');
-    cache = { jobs: [...unique.values()], source: 'Arbeitnow', sourceUrl: 'https://www.arbeitnow.com', updatedAt: new Date(now()).toISOString() };
-    return cache;
+    url.hash = '';
+    for (const key of [...url.searchParams.keys()]) if (key.startsWith('utm_') || key === 'source') url.searchParams.delete(key);
+    const key = url.href.replace(/\/$/, '');
+    if (!unique.has(key)) unique.set(key, job);
   }
-  return async function getJobs() {
-    if (cache && now() - Date.parse(cache.updatedAt) < CACHE_TTL) return { ...cache, stale: false };
+  return [...unique.values()].sort((a, b) => (Date.parse(b.publishedAt) || 0) - (Date.parse(a.publishedAt) || 0));
+}
+export function createJobsService({ fetchImpl = fetch, now = Date.now, sources = SOURCES } = {}) {
+  const states = new Map();
+  let inFlight;
+  async function refreshSource(source) {
+    const previous = states.get(source.id);
+    const currentTime = now();
+    if (previous && currentTime - previous.attemptedAt < (previous.status === 'ok' ? CACHE_TTL : ERROR_RETRY_TTL)) return previous;
+    let state;
     try {
-      if (!inFlight) inFlight = refresh().finally(() => { inFlight = undefined; });
-      return { ...await inFlight, stale: false };
-    } catch (error) {
-      if (cache) return { ...cache, stale: true };
-      throw error;
+      const jobs = await source.load({ fetchImpl, now: currentTime });
+      if (!Array.isArray(jobs)) throw new Error('Formato de vagas inválido');
+      state = { jobs, updatedAt: new Date(currentTime).toISOString(), attemptedAt: currentTime, status: 'ok' };
+    } catch {
+      state = { jobs: previous?.jobs ?? [], updatedAt: previous?.updatedAt ?? null, attemptedAt: currentTime, status: previous?.updatedAt ? 'stale' : 'unavailable' };
     }
+    states.set(source.id, state);
+    return state;
+  }
+  async function aggregate() {
+    const results = await Promise.all(sources.map(refreshSource));
+    if (!results.some(result => result.updatedAt !== null)) throw new Error('Todas as fontes de vagas estão indisponíveis');
+    return {
+      jobs: deduplicateJobs(results.flatMap(result => result.jobs.map(job => ({ ...job, sourceStale: result.status === 'stale', sourceUpdatedAt: result.updatedAt })))),
+      sources: sources.map((source, index) => ({ id: source.id, name: source.name, url: source.url, status: results[index].status, count: results[index].jobs.length, updatedAt: results[index].updatedAt })),
+      updatedAt: results.map(result => result.updatedAt).filter(Boolean).sort().at(-1),
+      stale: results.some(result => result.status === 'stale'), partial: results.some(result => result.status !== 'ok'),
+    };
+  }
+  return function getJobs() {
+    if (!inFlight) inFlight = aggregate().finally(() => { inFlight = undefined; });
+    return inFlight;
   };
 }

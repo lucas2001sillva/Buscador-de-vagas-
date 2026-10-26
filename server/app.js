@@ -14,7 +14,7 @@ export function createApiHandler(getJobs) {
       try { res.end(JSON.stringify(await getJobs())); }
       catch {
         res.statusCode = 502;
-        res.end(JSON.stringify({ error: 'Não foi possível consultar a Arbeitnow. Tente novamente em alguns instantes.' }));
+        res.end(JSON.stringify({ error: 'Não foi possível consultar as fontes de vagas. Tente novamente em alguns instantes.' }));
       }
     } else {
       res.statusCode = 404;

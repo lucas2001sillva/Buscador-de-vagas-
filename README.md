@@ -1,6 +1,6 @@
 # Próxima Vaga
 
-Buscador em português com React e Node.js. Consulta vagas reais da API pública da [Arbeitnow](https://www.arbeitnow.com), sem chave de API. A seleção contém a primeira página do feed, com foco em oportunidades internacionais, especialmente na Europa; não é uma busca completa de todas as vagas da plataforma.
+Buscador em português com foco em vagas disponíveis no Brasil. Reúne anúncios públicos de **Gupy**, **ProgramaThor** e das comunidades **Front-end BR**, **Back-end BR** e **React Brasil** no GitHub. Inclui passagens bíblicas da NVI conferidas nos PDFs fornecidos pelo usuário.
 
 ## Executar
 
@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-O servidor usa a porta 3000. Para alterar: `PORT=4000 npm run dev`. O mesmo processo serve o site e as rotas `/api/jobs` e `/api/health`.
+O mesmo servidor atende o site React e as rotas `/api/jobs` e `/api/health`. A porta padrão é 3000; para alterar: `PORT=4000 npm run dev`.
 
 ```bash
 npm test
@@ -23,38 +23,58 @@ npm start
 
 ## Recursos
 
-- Busca por cargo, empresa e tags, combinada com cidade ou país, sem diferenciar acentos ou maiúsculas.
-- Filtros de remoto e contrato, quando informados pela fonte; ordenação por data ou empresa.
-- Favoritos guardados neste navegador, disponíveis mesmo quando a fonte está fora do ar; não são sincronizados entre dispositivos.
-- Detalhes em modal acessível e candidatura no site original.
-- Interface responsiva com carregamento, erro, filtros e resultados vazios.
+- Busca por cargo, empresa e tags, combinada com cidade ou estado, sem diferenciar acentos e maiúsculas.
+- Filtro com seleção múltipla de **presencial, híbrido e remoto**, além de **não informado**. Selecionar dois modelos inclui vagas de qualquer um deles.
+- Contratos padronizados em português: CLT, PJ, Estágio, Aprendiz, Temporário, Autônomo, Cooperado, Voluntário e Bolsista. Tipos desconhecidos ficam em **Não informado**; jornada integral ou parcial não é interpretada como contrato.
+- Filtro por fonte, ordenação, paginação local e favoritos persistidos no navegador.
+- Fonte original em cada anúncio, detalhes e link para consultar a vaga e se candidatar na origem.
+- Passagem NVI selecionada por dia no fuso de São Paulo, com botão **Outra passagem**, referência bíblica e página do PDF enviado.
+- Interface responsiva, navegação por teclado, estados de carregamento, erro e resultados vazios.
 
-## Fonte e rede
+## Fontes e limites
 
-O servidor consulta `https://www.arbeitnow.com/api/job-board-api` com prazo de 15 segundos e cache em memória de 10 minutos. Consultas simultâneas compartilham uma requisição. Na falha, a última seleção disponível recebe um aviso de desatualização. Sem cache, a API retorna HTTP 502 e o site permite tentar novamente. Não há vagas fictícias como alternativa à fonte real.
+| Fonte | Consulta pública | Seleção |
+| --- | --- | --- |
+| Gupy | `portal.gupy.io/api/job-search/jobs` | Até 100 anúncios da busca mais recente; somente país Brasil ou localização em uma UF brasileira reconhecida. Na indisponibilidade da rota, usa os dados públicos da página de busca. Exclui banco de talentos e prazo de inscrição vencido quando informado. |
+| ProgramaThor | `programathor.com.br/jobs` | Anúncios da primeira página pública do portal brasileiro de tecnologia; publicidade é ignorada. Datas ausentes não são inventadas. |
+| Front-end BR | `github.com/frontendbr/vagas/issues` | Primeira página pública de anúncios abertos, publicados nos últimos 180 dias. |
+| Back-end BR | `github.com/backend-br/vagas/issues` | Mesmo critério, na comunidade de back-end. |
+| React Brasil | `github.com/react-brasil/vagas/issues` | Mesmo critério, na comunidade de React. |
 
-Em redes restritas, permita **www.arbeitnow.com**. A instalação usa **registry.npmjs.org**. O servidor usa o suporte nativo a `HTTP_PROXY`, `HTTPS_PROXY` e `NO_PROXY` do Node.js 24, mantendo a validação TLS. Fontes e ícones são servidos localmente. Nenhuma credencial é necessária.
+A busca é feita **na seleção carregada**, não em todos os anúncios de todos os portais. Comunidades brasileiras podem divulgar oportunidades internacionais para candidatos do Brasil: localizações explicitamente estrangeiras no título são excluídas, mas a elegibilidade de vagas remotas deve ser confirmada no anúncio. Não é possível garantir que um anúncio ainda aberto continue contratando.
 
-Títulos e descrições permanecem no idioma original. Confirme na fonte as restrições de país e autorização de trabalho: remoto não implica contratação em qualquer país. Não são inferidos salário, modalidade híbrida ou elegibilidade para visto. Favoritos podem conter vagas já encerradas.
+Modalidades só são atribuídas com indicação explícita da fonte. Uma cidade informada ou a ausência de indicação de remoto não determina se a vaga é presencial ou híbrida. No GitHub, a modalidade explícita no título tem prioridade sobre rótulos genéricos. Na Gupy, `Efetivo` é apresentado como CLT; outros tipos conhecidos são normalizados, sem transformar cargo, senioridade ou jornada em contrato.
 
-## Organização e testes
+Anúncios podem manter termos originais em seus títulos e descrições. Os filtros e as modalidades são apresentados em português. Os favoritos da versão anterior da Arbeitnow são preservados como **favoritos antigos**, sem participar da nova seleção brasileira.
 
-- `src/`: aplicação React, filtros e estilos.
-- `server/`: servidor HTTP, integração e cache.
-- `test/`: normalização, segurança dos links, filtros, cache, falhas da fonte e rotas HTTP.
+## Cache e disponibilidade
 
-Os testes usam dados simulados explícitos; não substituem validar a fonte ao vivo. Os favoritos incluem os detalhes das vagas no armazenamento local. O sistema não coleta currículos nem envia candidaturas. A publicação do código e o deploy são etapas separadas e não são executados automaticamente.
+Cada fonte tem cache independente em memória por 10 minutos. Consultas simultâneas compartilham o mesmo carregamento; fontes são consultadas em paralelo. Cada requisição tem prazo de 15 segundos. Uma falha isolada mantém as demais fontes disponíveis e é identificada na interface. Dados antigos em cache são sinalizados; falhas respeitam intervalo de 1 minuto antes de uma nova tentativa.
 
-Para testar os fluxos no navegador e verificar acessibilidade automaticamente, execute `npm run build && npm run test:ui`. O teste inicia e encerra seu próprio servidor. Ele usa Chromium em `/usr/bin/chromium`, quando disponível; em outro sistema, instale o navegador com `npx playwright install chromium` ou informe o executável com `CHROMIUM_PATH`. `BASE_URL` permite testar um servidor já iniciado. Os testes da interface simulam a API explicitamente, sem alterar a fonte usada pela aplicação.
+A API retorna HTTP 502 apenas quando não há nenhuma fonte válida, nem cache utilizável. Uma fonte que responde com lista vazia válida continua sendo uma consulta bem-sucedida. URLs repetidas são eliminadas, desconsiderando parâmetros usuais de rastreamento. Não há vagas fictícias para substituir fontes fora do ar.
+
+Não são necessárias chaves de API. Em redes restritas, permita **portal.gupy.io**, **programathor.com.br** e **github.com**. A instalação usa **registry.npmjs.org**. O suporte nativo a `HTTP_PROXY`, `HTTPS_PROXY` e `NO_PROXY` do Node.js permanece ativo, com validação TLS. Fontes tipográficas e ícones são locais. A antiga rota `portal.api.gupy.io/api/v1/jobs` não é usada.
+
+## Passagens bíblicas
+
+As seis passagens em `src/verses.js` foram conferidas em `NT-NVI-Pt.pdf` e `AT-NVI-Pt.pdf`, enviados pelo usuário. Cada registro inclui a referência, o nome do documento e a página física do arquivo. A grafia da edição foi preservada; marcas de nota de rodapé, números dos versículos e quebras de linha do PDF não integram o texto mostrado. Os PDFs completos não são publicados nem enviados ao GitHub.
+
+## Testes
+
+- `npm test`: normalização das fontes, localização brasileira, modalidades, contratos, URLs, cache, falhas isoladas, filtros, migração de favoritos, passagens e rotas HTTP.
+- `npm run build && npm run test:ui`: inicia e encerra seu próprio servidor de produção para testar os fluxos e a acessibilidade automática no desktop e no celular.
+
+O teste de interface usa Chromium em `/usr/bin/chromium`, quando disponível. Em outro sistema, execute `npx playwright install chromium` ou informe o executável com `CHROMIUM_PATH`. `BASE_URL` permite testar um servidor já iniciado. Os testes usam dados simulados identificados e não substituem a validação das fontes ao vivo.
 
 ## Publicar no Render
 
-O arquivo `render.yaml` prepara um Web Service com Node.js, compilação do site e verificação de saúde. A publicação exige uma conta do Render conectada ao GitHub e os arquivos desta aplicação enviados ao repositório; arquivos presentes apenas no ambiente de desenvolvimento não ficam automaticamente disponíveis no GitHub.
+O arquivo `render.yaml` define um Web Service com Node.js. Após o código estar no GitHub:
 
-1. Crie uma conta em https://dashboard.render.com/ com seu GitHub.
-2. Depois que o código estiver no GitHub, no Render selecione **New → Blueprint** e conecte `lucas2001sillva/Buscador-de-vagas-`, branch `main`.
-3. Confira o serviço definido em `render.yaml` e o plano **Free**, caso disponível na sua conta, antes de criar o serviço. Não são necessárias chaves de API.
-4. Aguarde a compilação e a inicialização. O endereço público é o fornecido pelo painel do Render após o deploy; ele não é conhecido antecipadamente.
-5. Abra o endereço e confirme que as vagas são carregadas. O plano gratuito pode suspender o serviço quando inativo; o primeiro acesso pode demorar mais.
+1. Entre em https://dashboard.render.com/ com seu GitHub.
+2. Selecione **New → Blueprint**, conecte `lucas2001sillva/Buscador-de-vagas-` e use a branch `main`.
+3. Confira o plano **Free**, caso disponível na conta, e confirme a criação.
+4. Aguarde o deploy e abra o endereço fornecido pelo painel. Confira se as fontes carregam.
 
-Para configurar manualmente como **Web Service**, use build `npm ci --include=dev && npm run build`, start `npm start`, variável `NODE_VERSION=24.19.0` e health check `/api/health`. O servidor já escuta em `0.0.0.0` e usa a variável `PORT` fornecida pela hospedagem. Uma hospedagem de arquivos estáticos isolada não atende a rota de vagas deste projeto.
+Configuração manual: build `npm ci --include=dev && npm run build`, start `npm start`, variável `NODE_VERSION=24.19.0` e health check `/api/health`. O servidor escuta em `0.0.0.0` e usa `PORT` fornecida pela hospedagem. Uma hospedagem somente de arquivos estáticos não atende a API de vagas. O plano gratuito pode suspender o serviço por inatividade.
+
+Os favoritos pertencem ao navegador e não são sincronizados. O site não coleta currículos nem envia candidaturas. O deploy só está confirmado após verificação no serviço de hospedagem.
