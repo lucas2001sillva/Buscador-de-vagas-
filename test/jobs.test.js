@@ -48,7 +48,7 @@ test('links só aceitam HTTPS e páginas de vagas em fontes conhecidas', () => {
 
 test('conector Gupy usa a rota pública atual e descarta vagas fora do Brasil', async () => {
   const gupy = SOURCES.find(item => item.id === 'gupy');
-  const jobs = await gupy.load({ now, fetchImpl: async url => {
+  const { jobs } = await gupy.load({ now, fetchImpl: async url => {
     assert.ok(url.startsWith('https://portal.gupy.io/api/job-search/jobs?'));
     return Response.json({ data: [raw, { ...raw, id: 11, country: 'Argentina' }] });
   } });
@@ -60,7 +60,7 @@ test('conector Gupy recupera a listagem pública quando a rota JSON falha', asyn
   let calls = 0;
   const row = { ...raw, description: 'Descrição de teste' };
   const html = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({ props: { pageProps: { initialJobList: { data: [row] } } } })}</script>`;
-  const jobs = await SOURCES.find(item => item.id === 'gupy').load({ now, fetchImpl: async url => {
+  const { jobs } = await SOURCES.find(item => item.id === 'gupy').load({ now, fetchImpl: async url => {
     calls++;
     return url.includes('/api/') ? new Response('Indisponível', { status: 503 }) : new Response(html);
   } });
@@ -169,7 +169,8 @@ test('favoritos de várias fontes e favoritos antigos sobrevivem à migração',
 });
 
 test('passagens NVI têm referência e página dos PDFs; seleção diária usa São Paulo', () => {
-  assert.equal(VERSES.length, 6);
+  assert.ok(VERSES.length >= 30);
+  assert.equal(new Set(VERSES.map(verse => verse.reference)).size, VERSES.length);
   for (const verse of VERSES) { assert.ok(verse.reference && verse.text && verse.page > 0); assert.ok(['NT-NVI-Pt.pdf', 'AT-NVI-Pt.pdf'].includes(verse.file)); }
   assert.equal(dailyVerseIndex(new Date('2026-10-26T02:30:00Z')), dailyVerseIndex(new Date('2026-10-25T20:00:00Z')));
   assert.notEqual(dailyVerseIndex(new Date('2026-10-26T03:30:00Z')), dailyVerseIndex(new Date('2026-10-25T20:00:00Z')));
@@ -177,7 +178,8 @@ test('passagens NVI têm referência e página dos PDFs; seleção diária usa S
 
 test('API HTTP mantém saúde, erros públicos, métodos e metadados de fontes', async t => {
   let fail = false;
-  const api = createApiHandler(async () => { if (fail) throw new Error('private details'); return { jobs: [job], sources: [{ id: 'gupy', status: 'ok' }], stale: false }; });
+  let receivedSearch;
+  const api = createApiHandler(async search => { receivedSearch = search; if (fail) throw new Error('private details'); return { jobs: [job], sources: [{ id: 'gupy', status: 'ok' }], stale: false }; });
   const server = createServer(async (req, res) => { if (!(await api(req, res))) { res.statusCode = 404; res.end(); } });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise(resolve => server.close(resolve)));
@@ -186,6 +188,9 @@ test('API HTTP mantém saúde, erros públicos, métodos e metadados de fontes',
   const response = await fetch(`${base}/api/jobs`);
   assert.equal(response.status, 200);
   assert.equal((await response.json()).sources[0].id, 'gupy');
+  await fetch(`${base}/api/jobs?q=gar%C3%A7om&location=Limeira%2C%20SP&page=1`);
+  assert.deepEqual(receivedSearch, { query: 'garçom', location: 'Limeira, SP', page: 1 });
+  assert.equal((await fetch(`${base}/api/jobs?page=999`)).status, 400);
   assert.equal((await fetch(`${base}/api/unknown`)).status, 404);
   assert.equal((await fetch(`${base}/api/jobs`, { method: 'POST' })).status, 405);
   fail = true;

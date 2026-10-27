@@ -1,13 +1,20 @@
 import { normalizeText } from '../shared/job-schema.js';
+import { canonicalLocation } from '../shared/job-identity.js';
 export { normalizeText } from '../shared/job-schema.js';
 
 export function filterJobs(jobs, { query = '', location = '', workModels = [], type = '', source = '', savedOnly = false, savedIds = [], sort = 'recent' } = {}) {
   const terms = normalizeText(query).trim().split(/\s+/).filter(Boolean);
   const place = normalizeText(location).trim();
+  const requestedPlace = canonicalLocation(location);
   const filtered = jobs.filter(job => {
     const searchable = normalizeText([job.title, job.company, ...job.tags].join(' '));
+    const jobPlace = canonicalLocation(job.location);
+    const matchesPlace = !place || normalizeText(job.location).includes(place) || (
+      (!requestedPlace.city || jobPlace.city.includes(requestedPlace.city))
+      && (!requestedPlace.state || jobPlace.state === requestedPlace.state)
+    );
     return terms.every(term => searchable.includes(term))
-      && (!place || normalizeText(job.location).includes(place))
+      && matchesPlace
       && (!workModels.length || workModels.includes(job.workModel ?? 'unknown'))
       && (!type || (type === 'unknown' ? !job.types.length : job.types.includes(type)))
       && (!source || job.sourceId === source)

@@ -1,6 +1,6 @@
 # Próxima Vaga
 
-Buscador em português com foco em vagas disponíveis no Brasil. Reúne anúncios públicos de **Glassdoor**, **Indeed**, **Randstad**, **Gupy**, **ProgramaThor** e comunidades brasileiras no GitHub. **InfoJobs**, **Catho** e **LinkedIn** têm estados de conexão explícitos, conforme a disponibilidade e a configuração descritas abaixo. Inclui passagens bíblicas da NVI conferidas nos PDFs fornecidos pelo usuário.
+Buscador em português com foco em vagas disponíveis no Brasil. Reúne anúncios públicos de **Glassdoor**, **Indeed**, **Randstad**, **Gupy**, **ProgramaThor** e comunidades brasileiras no GitHub. **InfoJobs**, **Catho** e **LinkedIn** também participam, conforme a disponibilidade pública e a configuração da integração autorizada descritas abaixo. Inclui passagens bíblicas da NVI conferidas nos PDFs fornecidos pelo usuário.
 
 ## Executar
 
@@ -23,10 +23,10 @@ npm start
 
 ## Recursos
 
-- Busca por cargo, empresa e tags, combinada com cidade ou estado, sem diferenciar acentos e maiúsculas.
+- Busca por cargo e cidade enviada ao servidor e às fontes conectadas, sem ficar restrita à seleção da página inicial. A interface combina os resultados com filtros sem diferenciar acentos e maiúsculas; cidade/UF também reconhece o estado por extenso.
 - Filtro com seleção múltipla de **presencial, híbrido e remoto**, além de **não informado**. Selecionar dois modelos inclui vagas de qualquer um deles.
 - Contratos padronizados em português: CLT, PJ, Estágio, Aprendiz, Temporário, Autônomo, Cooperado, Voluntário e Bolsista. Tipos desconhecidos ficam em **Não informado**; jornada integral ou parcial não é interpretada como contrato.
-- Filtro por fonte, ordenação, paginação local e favoritos persistidos no navegador.
+- Filtro por fonte, ordenação, botão para revelar os anúncios carregados e botão **Buscar mais vagas nos sites** para consultar novas páginas, mantendo cargo e cidade. Favoritos persistem no navegador.
 - Fonte original em cada anúncio, detalhes e link para consultar a vaga e se candidatar na origem.
 - Passagem NVI selecionada por dia no fuso de São Paulo, com botão **Outra passagem**, referência bíblica e página do PDF enviado.
 - Interface responsiva, navegação por teclado, estados de carregamento, erro e resultados vazios.
@@ -35,19 +35,18 @@ npm start
 
 | Fonte | Consulta pública | Seleção |
 | --- | --- | --- |
-| Glassdoor | `glassdoor.com.br/Vaga/engenheiro-de-software-vagas-SRCH_KO0,22.htm` | Primeira página da consulta pública de engenharia de software, com empresas, locais e resumos efetivamente publicados. Não representa todo o catálogo do Glassdoor. |
-| Indeed | `br.indeed.com/jobs?l=Brasil` | Primeira página pública da seleção Brasil; lê somente os anúncios serializados, descarta expirados e publicações com mais de 180 dias. Não executa scripts da fonte nem utiliza tokens da sessão pública. |
-| Randstad | `randstad.com.br/empregos/` | Primeira página pública, com contrato e data informados pela fonte. A empresa exibida é Randstad; clientes não informados não são inventados. |
-| InfoJobs | `infojobs.com.br/empregos.aspx` | Primeira página pública, com cartões HTML ou anúncios estruturados JobPosting. Na seleção padrão consultada, o portal retornou vagas de São Paulo. Erros temporários da fonte não são tratados como uma conexão bem-sucedida. |
-| Catho | Integração opcional via índice Google Jobs | A consulta direta respondeu HTTP 403; conexão pendente de configuração e validação do provedor. |
-| LinkedIn | Integração opcional via índice Google Jobs | Não há consulta automatizada direta sem permissão. Conexão pendente de configuração e validação do provedor. |
-| Gupy | `portal.gupy.io/api/job-search/jobs` | Até 100 anúncios da busca mais recente; somente país Brasil ou localização em uma UF brasileira reconhecida. Na indisponibilidade da rota, usa os dados públicos da página de busca. Exclui banco de talentos e prazo de inscrição vencido quando informado. |
-| ProgramaThor | `programathor.com.br/jobs` | Anúncios da primeira página pública do portal brasileiro de tecnologia; publicidade é ignorada. Datas ausentes não são inventadas. |
-| Front-end BR | `github.com/frontendbr/vagas/issues` | Primeira página pública de anúncios abertos, publicados nos últimos 180 dias. |
-| Back-end BR | `github.com/backend-br/vagas/issues` | Mesmo critério, na comunidade de back-end. |
-| React Brasil | `github.com/react-brasil/vagas/issues` | Mesmo critério, na comunidade de React. |
+| Glassdoor | Listagem pública e Google Jobs via SerpApi | A consulta de engenharia de software é usada apenas na seleção inicial pública. Pesquisas por cargo/cidade usam o índice autorizado; não se reaproveita essa listagem fixa para outro cargo. |
+| Indeed | `br.indeed.com/jobs?q=...&l=...&start=...` e índice autorizado | Cargo e localização reais da pesquisa; até três páginas por lote. Descarta expiradas e anúncios com mais de 180 dias. Não executa scripts nem reutiliza tokens de sessão. |
+| Randstad | `randstad.com.br/vagas/q-.../page-.../` e índice autorizado | Até três páginas de 30 anúncios por lote. Cargo enviado ao portal; cidade refinada no filtro e no índice. Cliente não informado não é inventado. |
+| InfoJobs | `infojobs.com.br/empregos.aspx?Palabra=...&Page=...` e índice autorizado | Até três páginas por lote. Lê cartões HTML ou anúncios estruturados; bloqueios/erros são sinalizados. |
+| Catho e LinkedIn | Google Jobs via SerpApi | Cargo e cidade consultados no índice autorizado, sem automação de áreas restritas dos portais. |
+| Gupy | `portal.gupy.io/api/job-search/jobs` | Cargo em `jobName`, cidade em `city`, nome do estado em `state`; até três páginas de 100 anúncios por lote, antes de excluir exterior, banco de talentos e prazos vencidos. Fallback público na primeira página. |
+| ProgramaThor | `programathor.com.br/jobs` | Até três páginas por lote, quando disponíveis publicamente. Publicidade ignorada, datas ausentes preservadas. |
+| Front-end BR, Back-end BR e React Brasil | Listas públicas de issues no GitHub | Até três páginas por comunidade/lote, com termos da busca, issues abertas e anúncios dos últimos 180 dias. |
 
-A busca é feita **na seleção carregada**, não em todos os anúncios de todos os portais. Comunidades brasileiras podem divulgar oportunidades internacionais para candidatos do Brasil: localizações explicitamente estrangeiras no título são excluídas, mas a elegibilidade de vagas remotas deve ser confirmada no anúncio. Não é possível garantir que um anúncio ainda aberto continue contratando.
+`GET /api/jobs?q=garçom&location=Limeira%2C%20SP&page=0` inicia uma pesquisa. `page=1` consulta o próximo lote e retorna os resultados acumulados, deduplicados também entre páginas e fontes. `pagination.hasMore` controla o botão de nova consulta. São permitidos até cinco lotes por pesquisa; cada fonte para quando sua paginação termina ou repete os mesmos anúncios. Uma falha em páginas seguintes preserva as páginas disponíveis e sinaliza consulta parcial.
+
+A busca consulta anúncios **disponíveis publicamente e indexados**, sem prometer todo o catálogo dos portais. Uma publicação recente, restrita ou não indexada pode não aparecer. Há links para repetir cargo e cidade diretamente nos portais. Comunidades podem divulgar trabalho remoto com requisitos próprios de elegibilidade. Confirme a disponibilidade na origem.
 
 Modalidades só são atribuídas com indicação explícita da fonte. Uma cidade informada ou a ausência de indicação de remoto não determina se a vaga é presencial ou híbrida. No GitHub, a modalidade explícita no título tem prioridade sobre rótulos genéricos. Na Gupy, `Efetivo` é apresentado como CLT; outros tipos conhecidos são normalizados, sem transformar cargo, senioridade ou jornada em contrato.
 
@@ -55,7 +54,7 @@ Anúncios podem manter termos originais em seus títulos e descrições. Os filt
 
 ## Cache e disponibilidade
 
-Cada fonte tem cache independente em memória por 10 minutos. Consultas simultâneas compartilham o mesmo carregamento; fontes são consultadas em paralelo. Cada requisição tem prazo de 15 segundos. Uma falha isolada mantém as demais fontes disponíveis e é identificada na interface. Dados antigos em cache são sinalizados; falhas respeitam intervalo de 1 minuto antes de uma nova tentativa.
+Cada fonte e cada página têm cache independente em memória por 10 minutos, separado por cargo e cidade. Há limite de 30 pesquisas em memória; o cache não é persistente entre reinícios. Consultas simultâneas compartilham o mesmo carregamento; fontes são consultadas em paralelo. Cada requisição tem prazo de 15 segundos. Uma falha isolada mantém as demais fontes disponíveis e é identificada na interface. Dados antigos em cache são sinalizados; falhas respeitam intervalo de 1 minuto antes de uma nova tentativa.
 
 A disponibilidade depende também do ambiente que faz a consulta. Glassdoor e Indeed responderam no ambiente de desenvolvimento, mas ficaram indisponíveis na primeira validação do Render; Randstad respondeu nos dois. `sources[].failureReason` informa um código seguro de diagnóstico (HTTP, timeout ou falha de formato/rede), sem URL autenticada, credencial ou corpo de erro. Não use troca de identidade, resolução de CAPTCHA ou proxies para contornar recusas dos portais; utilize acesso autorizado quando necessário.
 
@@ -82,7 +81,7 @@ A API retorna `deduplication.received`, `unique` e `removed`. `sources[].rawCoun
 
 A integração com [Google Jobs via SerpApi](https://serpapi.com/google-jobs-api) foi preparada para os seis portais solicitados: Glassdoor, Indeed, InfoJobs, Catho, LinkedIn e Randstad. Ela só usa links diretos de anúncios nos domínios reconhecidos. Um rótulo como “LinkedIn” apontando para outro domínio não é aceito. Anúncios agrupados pelo índice são deduplicados novamente pela aplicação.
 
-**Ainda não houve validação autenticada:** o usuário informou não possuir uma API, e não há chave disponível. Os testes do provedor usam fixtures explícitas. Nenhuma requisição com credencial inventada é executada. As fontes protegidas aparecem como **Conexão pendente**, e não como fontes funcionando. Consultas públicas que falham aparecem como indisponíveis até uma recuperação real.
+O provedor depende de uma chave válida no servidor. Sem chave, as fontes protegidas aparecem como **Conexão pendente**. Consultas que falham aparecem como indisponíveis; credencial presente não é tratada como prova de integração funcionando. Os testes automatizados do provedor usam fixtures explícitas, separadamente das verificações reais no serviço publicado.
 
 Para usar o provedor:
 
@@ -91,7 +90,9 @@ Para usar o provedor:
 3. Nunca coloque a chave em chat, Git, frontend ou arquivos de instruções. O código não registra URLs autenticadas nem corpos de erro do provedor.
 4. Depois de configurar, valide `/api/jobs`: fontes `ok` indicam consulta concluída; contagem zero pode significar ausência de anúncios daquele portal na seleção indexada.
 
-O provedor consulta uma página de Google Jobs para “vagas no Brasil”, com até 10 resultados por página, e usa cache compartilhado por uma hora. Essa seleção pode não conter todos os portais, não é todo o catálogo dos sites e depende da cobertura do índice. Os conectores públicos têm prioridade; o provedor é usado para as fontes protegidas e como alternativa quando uma consulta pública falha. O filtro da interface continua operando sobre a seleção carregada.
+O provedor consulta **duas páginas por lote**, usando `next_page_token` retornado pela própria API; somente o token é aproveitado, nunca uma URL externa autenticada. O cargo e a cidade integram a consulta brasileira. O cache por pesquisa/página dura uma hora e é compartilhado pelos seis portais e pelos visitantes da mesma pesquisa, com até 40 pesquisas em memória. Uma próxima página só é consultada quando há token.
+
+Cada página pode consumir uma consulta do plano SerpApi; uma nova busca ou o botão de expansão pode usar até duas consultas adicionais. Confira a quota do plano. Os resultados indexados complementam os conectores públicos também quando estes respondem, e a deduplicação é aplicada sobre a união das fontes. Isso ainda depende da cobertura e da atualização do Google Jobs e da disponibilidade do provedor.
 
 ## AdSense
 
@@ -99,7 +100,7 @@ O snippet fornecido pelo usuário, do editor `ca-pub-7100655819276771`, está no
 
 ## Passagens bíblicas
 
-As seis passagens em `src/verses.js` foram conferidas em `NT-NVI-Pt.pdf` e `AT-NVI-Pt.pdf`, enviados pelo usuário. Cada registro inclui a referência, o nome do documento e a página física do arquivo. A grafia da edição foi preservada; marcas de nota de rodapé, números dos versículos e quebras de linha do PDF não integram o texto mostrado. Os PDFs completos não são publicados nem enviados ao GitHub.
+As 30 passagens em `src/verses.js` foram conferidas em `NT-NVI-Pt.pdf` e `AT-NVI-Pt.pdf`, enviados pelo usuário. Cada registro inclui a referência, o nome do documento e a página física do arquivo. A grafia da edição foi preservada; marcas de nota de rodapé, números dos versículos e quebras de linha do PDF não integram o texto mostrado. Os PDFs completos não são publicados nem enviados ao GitHub.
 
 ## Testes
 

@@ -1,6 +1,7 @@
 import { detectWorkModel, normalizeContracts, normalizeText, normalizeWorkModel, safeJobUrl } from '../shared/job-schema.js';
 import { load } from 'cheerio';
-import { plainText, isoDate, fetchPublic as get } from './source-utils.js';
+import { plainText, isoDate, fetchPublic as get, loadPublicPages } from './source-utils.js';
+import { canonicalLocation } from '../shared/job-identity.js';
 export { plainText } from './source-utils.js';
 import { createPortalSources } from './portal-sources.js';
 const BRAZILIAN_STATES = new Set('AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO|Acre|Alagoas|Amapá|Amazonas|Bahia|Ceará|Distrito Federal|Espírito Santo|Goiás|Maranhão|Mato Grosso|Mato Grosso do Sul|Minas Gerais|Pará|Paraíba|Paraná|Pernambuco|Piauí|Rio de Janeiro|Rio Grande do Norte|Rio Grande do Sul|Rondônia|Roraima|Santa Catarina|São Paulo|Sergipe|Tocantins'.split('|').map(normalizeText));
@@ -96,23 +97,33 @@ export function parseProgramathor(html) {
 }
 export const SOURCES = [
   ...createPortalSources(),
-  { id: 'programathor', name: 'ProgramaThor', url: 'https://programathor.com.br/jobs', async load({ fetchImpl }) {
-    return parseProgramathor(await get('https://programathor.com.br/jobs', fetchImpl));
+  { id: 'programathor', name: 'ProgramaThor', url: 'https://programathor.com.br/jobs', async load({ fetchImpl, query = '', page = 0 }) {
+    return loadPublicPages({ fetchImpl, page, pageSize: 15, parse: parseProgramathor, urlForPage: index => 'https://programathor.com.br/jobs?' + new URLSearchParams({ page: String(index + 1), ...(query ? { search: query } : {}) }) });
   } },
-  { id: 'gupy', name: 'Gupy', url: 'https://portal.gupy.io', async load({ fetchImpl, now }) {
-    let rows;
+  { id: 'gupy', name: 'Gupy', url: 'https://portal.gupy.io', async load({ fetchImpl, now, query = '', location = '', page = 0 }) {
+    const place = canonicalLocation(location);
+    const states = 'AC:Acre|AL:Alagoas|AP:Amapá|AM:Amazonas|BA:Bahia|CE:Ceará|DF:Distrito Federal|ES:Espírito Santo|GO:Goiás|MA:Maranhão|MT:Mato Grosso|MS:Mato Grosso do Sul|MG:Minas Gerais|PA:Pará|PB:Paraíba|PR:Paraná|PE:Pernambuco|PI:Piauí|RJ:Rio de Janeiro|RN:Rio Grande do Norte|RS:Rio Grande do Sul|RO:Rondônia|RR:Roraima|SC:Santa Catarina|SP:São Paulo|SE:Sergipe|TO:Tocantins';
+    const state = Object.fromEntries(states.split('|').map(item => item.split(':')))[place.state.toUpperCase()];
+    // Rota pública atual: o campo de pesquisa real chama-se jobName, não name.
+    const params = { limit: '100', sortBy: 'publishedDate', sortOrder: 'desc', ...(query ? { jobName: query } : {}), ...(place.city ? { city: location.split(/[,/]/)[0].trim().replace(/\s+-\s+[A-Za-z]{2}$/, '') } : {}), ...(state ? { state } : {}) };
+    let result;
     try {
-      const payload = await get('https://portal.gupy.io/api/job-search/jobs?limit=100&offset=0&sortBy=publishedDate&sortOrder=desc', fetchImpl, true);
-      if (!Array.isArray(payload.data)) throw new Error('Formato de vagas da Gupy mudou');
-      rows = payload.data;
-    } catch {
-      // Usa apenas os dados já públicos na página de busca, sem login ou contornar bloqueios.
-      rows = parseGupyListing(await get('https://portal.gupy.io/job-search/sortBy=publishedDate', fetchImpl));
+      result = await loadPublicPages({ fetchImpl, page, pageSize: 100, json: true,
+        urlForPage: index => 'https://portal.gupy.io/api/job-search/jobs?' + new URLSearchParams({ ...params, offset: String(index * 100) }),
+        parse: payload => { if (!Array.isArray(payload.data)) throw new Error('Formato de vagas da Gupy mudou'); return payload.data; },
+      });
+    } catch (error) {
+      if (page > 0) throw error;
+      const filters = new URLSearchParams({ term: query, ...(place.city ? { city: params.city } : {}), ...(state ? { state } : {}), sortBy: 'publishedDate' });
+      result = { jobs: parseGupyListing(await get('https://portal.gupy.io/job-search/' + filters, fetchImpl)), hasMore: false, partial: true };
     }
-    return rows.map(job => normalizeGupy(job, now)).filter(Boolean);
+    return { ...result, jobs: result.jobs.map(job => normalizeGupy(job, now)).filter(Boolean) };
   } },
-  ...BOARDS.map(board => ({ id: board.id, name: board.name, url: `https://github.com/${board.repository}`, async load({ fetchImpl, now }) {
-    const html = await get(`https://github.com/${board.repository}/issues?q=is%3Aissue%20is%3Aopen%20sort%3Acreated-desc`, fetchImpl);
-    return parseGithubListing(html).map(issue => normalizeGithub(issue, board, now)).filter(Boolean);
+  ...BOARDS.map(board => ({ id: board.id, name: board.name, url: 'https://github.com/' + board.repository, async load({ fetchImpl, now, query = '', location = '', page = 0 }) {
+    const result = await loadPublicPages({ fetchImpl, page, pageSize: 25,
+      urlForPage: index => 'https://github.com/' + board.repository + '/issues?' + new URLSearchParams({ q: ['is:issue is:open sort:created-desc', query, location].filter(Boolean).join(' '), page: String(index + 1) }),
+      parse: html => parseGithubListing(html).map(issue => ({ ...issue, id: issue.number })),
+    });
+    return { ...result, jobs: result.jobs.map(issue => normalizeGithub(issue, board, now)).filter(Boolean) };
   } })),
 ];

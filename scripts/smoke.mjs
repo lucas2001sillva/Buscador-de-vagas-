@@ -37,7 +37,7 @@ try {
   await page.route('**/pagead/js/adsbygoogle.js*', route => route.abort());
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await page.route('**/api/jobs', route => route.fulfill({ json: payload }));
+  await page.route('**/api/jobs?*', route => route.fulfill({ json: payload }));
   await page.goto(base);
   await page.locator('.job-card').first().waitFor();
   assert.equal(await page.locator('.job-card').count(), 9);
@@ -46,6 +46,7 @@ try {
   await page.getByRole('textbox', { name: 'Cargo, empresa ou palavra-chave' }).fill('software');
   await page.getByRole('textbox', { name: 'Cidade ou estado' }).fill('sao paulo');
   await page.getByRole('button', { name: 'Encontrar vagas' }).click();
+  await page.locator('.job-card').first().waitFor();
   assert.equal(await page.locator('.job-card').count(), 6);
   await page.getByRole('checkbox', { name: /^Remoto/ }).check();
   assert.equal(await page.locator('.job-card').count(), 2);
@@ -54,6 +55,7 @@ try {
   const save = page.getByRole('button', { name: 'Salvar vaga: Software Engineer 0', exact: true });
   await save.click();
   await page.reload();
+  await page.locator('.job-card').first().waitFor();
   await page.getByRole('button', { name: /Favoritas/ }).click();
   assert.equal(await page.locator('.job-card').count(), 1);
   await page.getByRole('button', { name: 'Ver oportunidade' }).click();
@@ -68,6 +70,7 @@ try {
   await page.getByRole('button', { name: 'Encontrar vagas' }).click();
   await page.getByRole('heading', { name: 'Vamos tentar um novo caminho?' }).waitFor();
   await page.getByRole('button', { name: 'Limpar filtros' }).click();
+  await page.locator('.job-card').first().waitFor();
   const beforeVerse = await page.locator('.verse-card blockquote p').innerText();
   assert.ok(VERSES.some(verse => `“${verse.text}”` === beforeVerse));
   await page.getByRole('button', { name: 'Outra passagem' }).click();
@@ -96,9 +99,9 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   const mobileAxe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
   assert.deepEqual(mobileAxe.violations.map(item => ({ id: item.id, targets: item.nodes.map(node => node.target) })), [], 'Acessibilidade mobile');
-  await page.unroute('**/api/jobs');
+  await page.unroute('**/api/jobs?*');
   let fails = true;
-  await page.route('**/api/jobs', route => fails ? route.fulfill({ status: 502, json: { error: 'Fonte indisponível no teste' } }) : route.fulfill({ json: payload }));
+  await page.route('**/api/jobs?*', route => fails ? route.fulfill({ status: 502, json: { error: 'Fonte indisponível no teste' } }) : route.fulfill({ json: payload }));
   await page.reload();
   await page.getByRole('button', { name: 'Tentar novamente' }).waitFor();
   assert.equal(await page.locator('.job-card').count(), 0);
@@ -106,11 +109,11 @@ try {
   await page.getByRole('button', { name: 'Tentar novamente' }).click();
   await page.locator('.job-card').first().waitFor();
   assert.equal(await page.locator('.job-card').count(), 9);
-  await page.unroute('**/api/jobs');
+  await page.unroute('**/api/jobs?*');
   await page.setViewportSize({ width: 1440, height: 1000 });
   const duplicate = { ...fixtures[0], id: 'duplicate-other-site', sourceId: 'indeed', sourceName: 'Indeed', url: 'https://br.indeed.com/viewjob?jk=abc123' };
   let currentPayload = { ...payload, jobs: [...fixtures, duplicate], sources: [...payload.sources, { id: 'indeed', name: 'Indeed', url: 'https://br.indeed.com', status: 'ok', count: 0 }, { id: 'catho', name: 'Catho', url: 'https://www.catho.com.br/vagas/', status: 'not_configured', count: 0 }] };
-  await page.route('**/api/jobs', route => route.fulfill({ json: currentPayload }));
+  await page.route('**/api/jobs?*', route => route.fulfill({ json: currentPayload }));
   await page.reload();
   await page.locator('.job-card').first().waitFor();
   await page.getByRole('button', { name: /Mostrar mais oportunidades/ }).click();
@@ -129,6 +132,40 @@ try {
   await page.getByRole('heading', { name: 'Esta fonte ainda não está conectada.' }).waitFor();
   assert.equal(await page.locator('.job-card').count(), 0);
   assert.ok(!(await page.locator('body').innerText()).includes('SERPAPI_KEY'), 'Detalhes internos de configuração não aparecem no fluxo público');
+  await page.unroute('**/api/jobs?*');
+  const requests = [];
+  const targeted = { ...fixtures[0], id: 'targeted-new-job', title: 'Garçom - Coco Bambu Limeira', company: 'Coco Bambu', location: 'Limeira, São Paulo, Brasil', url: 'https://cocobambu.gupy.io/jobs/12704599' };
+  const copy = { ...targeted, id: 'targeted-indeed-copy', sourceId: 'indeed', sourceName: 'Indeed', location: 'Limeira, SP', url: 'https://br.indeed.com/viewjob?jk=b3cc06ea93801b68' };
+  const later = { ...targeted, id: 'targeted-later', title: 'Garçom de salão', company: 'Restaurante seguinte', url: 'https://restaurante.gupy.io/jobs/12704600' };
+  await page.route('**/api/jobs?*', route => {
+    const params = new URL(route.request().url()).searchParams;
+    requests.push(Object.fromEntries(params));
+    const searching = params.get('q') === 'garçom';
+    const expanded = params.get('page') === '1';
+    return route.fulfill({ json: { ...payload, jobs: searching ? [targeted, copy, ...(expanded ? [later] : [])] : fixtures, pagination: { page: expanded ? 1 : 0, hasMore: !expanded } } });
+  });
+  await page.reload();
+  await page.locator('.job-card').first().waitFor();
+  await page.getByRole('textbox', { name: 'Cargo, empresa ou palavra-chave' }).fill('garçom');
+  await page.getByRole('textbox', { name: 'Cidade ou estado' }).fill('Limeira, SP');
+  await page.getByRole('button', { name: 'Encontrar vagas' }).click();
+  await page.getByRole('button', { name: targeted.title, exact: true }).waitFor();
+  assert.equal(await page.locator('.job-card').count(), 1, 'A vaga ausente da seleção inicial é consultada no servidor e aparece uma vez');
+  assert.ok(requests.some(item => item.q === 'garçom' && item.location === 'Limeira, SP' && item.page === '0'));
+  assert.equal(new URL(page.url()).searchParams.get('q'), 'garçom', 'Pesquisa pode ser compartilhada por URL');
+  await page.getByRole('button', { name: 'Buscar mais vagas nos sites' }).click();
+  await page.getByRole('button', { name: later.title, exact: true }).waitFor();
+  assert.equal(await page.locator('.job-card').count(), 2);
+  assert.ok(requests.some(item => item.q === 'garçom' && item.location === 'Limeira, SP' && item.page === '1'));
+  assert.equal(await page.getByRole('button', { name: 'Buscar mais vagas nos sites' }).count(), 0);
+  const seenPassages = new Set();
+  for (let i = 0; i < VERSES.length; i++) {
+    seenPassages.add(await page.locator('.verse-card cite').innerText());
+    await page.getByRole('button', { name: 'Outra passagem' }).click();
+  }
+  assert.equal(seenPassages.size, VERSES.length, 'Todas as 30 passagens estão acessíveis sem repetição antes do fim do ciclo');
+  const searchAxe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+  assert.deepEqual(searchAxe.violations.map(item => ({ id: item.id, targets: item.nodes.map(node => node.target) })), [], 'Acessibilidade da nova pesquisa');
   assert.deepEqual(errors, []);
   console.log('PASS: busca, filtros de três modalidades, contratos em português, fontes, passagens NVI, paginação, favoritos persistentes, detalhes, candidatura, estados vazio/erro/recuperação, mobile, acessibilidade automática, deduplicação entre portais, troca de origem dos favoritos e fontes pendentes. Dados simulados apenas neste teste.');
 } finally {
