@@ -26,3 +26,7 @@
 .original-search > p { margin: 0 0 10px; }
 .original-search > div { display: flex; flex-wrap: wrap; gap: 12px 20px; }
 .original-search a { display: inline-flex; align-items: center; gap: 4px; color: var(--green); font-size: .8rem; font-weight: 600; }
+@media (max-width: 650px) {
+  .verse-card { display: grid; grid-template-columns: 32px minmax(0, 1fr); }
+  .verse-next { grid-column: 2; justify-self: start; margin-left: 0; }
+}

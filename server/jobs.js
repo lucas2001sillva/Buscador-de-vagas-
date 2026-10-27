@@ -44,7 +44,7 @@ export function createJobsService({ fetchImpl = fetch, now = Date.now, sources =
       if (!Array.isArray(jobs)) throw new Error('Formato de vagas inválido');
       state = { jobs, hasMore: Boolean(result.hasMore), updatedAt: new Date(currentTime).toISOString(), attemptedAt: currentTime, status: result.partial ? 'partial' : 'ok', failureReason: result.partial ? 'PARTIAL_PAGES' : null };
     } catch (error) {
-      state = { jobs: previous?.jobs ?? [], hasMore: true, updatedAt: previous?.updatedAt ?? null, attemptedAt: currentTime, status: previous?.updatedAt ? 'stale' : error?.code === 'NOT_CONFIGURED' ? 'not_configured' : 'unavailable', failureReason: failureReason(error) };
+      state = { jobs: previous?.jobs ?? [], hasMore: previous?.hasMore ?? false, updatedAt: previous?.updatedAt ?? null, attemptedAt: currentTime, status: previous?.updatedAt ? 'stale' : error?.code === 'NOT_CONFIGURED' ? 'not_configured' : 'unavailable', failureReason: failureReason(error) };
     }
     context.states.set(key, state);
     return state;
@@ -72,7 +72,7 @@ export function createJobsService({ fetchImpl = fetch, now = Date.now, sources =
     });
     return {
       jobs, search: { query: search.query, location: search.location },
-      pagination: { page: search.page, hasMore: search.page < MAX_SEARCH_PAGE && sourceStates.some(result => result.hasMore && result.status !== 'not_configured') },
+      pagination: { page: search.page, hasMore: search.page < MAX_SEARCH_PAGE && sourceStates.some(result => result.hasMore && ['ok', 'partial', 'stale'].includes(result.status)) },
       deduplication: { received: byId.length, unique: jobs.length, removed: byId.length - jobs.length },
       sources: sources.map((source, index) => ({ id: source.id, name: source.name, url: source.url, status: sourceStates[index].status, count: jobs.filter(job => job.sourceId === source.id).length, rawCount: byId.filter(job => job.sourceId === source.id).length, updatedAt: sourceStates[index].updatedAt, failureReason: sourceStates[index].failureReason })),
       updatedAt: sourceStates.map(result => result.updatedAt).filter(Boolean).sort().at(-1),

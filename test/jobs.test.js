@@ -71,6 +71,8 @@ test('conector Gupy recupera a listagem pública quando a rota JSON falha', asyn
 test('extrai a lista pública do GitHub, ignora PRs e falha quando o site muda', () => {
   const html = `<script type="application/json" data-target="react-app.embeddedData">${JSON.stringify({ payload: { issuesIndexContentRoute: { results: [{ issue }, { pullRequest: {} }] } } })}</script>`;
   assert.deepEqual(parseGithubListing(html), [issue]);
+  const empty = `<script data-target="react-app.embeddedData">${JSON.stringify({ payload: { issuesIndexContentRoute: { pageInfo: { currentPage: 1 } } } })}</script><div data-target="react-app.reactRoot">No results matched your search</div>`;
+  assert.deepEqual(parseGithubListing(empty), []);
   assert.throws(() => parseGithubListing('<html>Página de bloqueio</html>'));
   assert.throws(() => parseGithubListing('<script data-target="react-app.embeddedData">{}</script>'));
 });

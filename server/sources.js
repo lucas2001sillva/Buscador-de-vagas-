@@ -39,6 +39,8 @@ export function parseGithubListing(html) {
   const match = html.match(/<script\b(?=[^>]*data-target=["']react-app\.embeddedData["'])[^>]*>([\s\S]*?)<\/script>/i);
   if (!match) throw new Error('Estrutura da lista pública do GitHub mudou');
   const payload = JSON.parse(match[1]).payload?.issuesIndexContentRoute;
+  // O GitHub omite results na resposta HTML de uma busca legitimamente vazia.
+  if (payload?.pageInfo && /No results matched your search/.test(load(html)('[data-target="react-app.reactRoot"]').text())) return [];
   if (!Array.isArray(payload?.results)) throw new Error('Lista pública de vagas ausente');
   return payload.results.map(item => item.issue).filter(Boolean);
 }
